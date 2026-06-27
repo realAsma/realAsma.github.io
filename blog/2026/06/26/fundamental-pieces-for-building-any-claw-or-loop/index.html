@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fundamental Pieces for Building Any Claw or Loop | realAsma</title>
+    <meta name="description" content="Fundamental pieces that turn one-shot coding agents into eventful systems with memory. We can call them OpenClaw, Loop Engineering, or something else, but under the hood they all look similar.">
+    <link rel="stylesheet" href="/assets/css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">realAsma</a>
+      <nav aria-label="Primary navigation">
+        <a href="/blog/">Blog</a>
+        <a href="/about/">About</a>
+        <a href="https://github.com/realAsma">GitHub</a>
+      </nav>
+    </header>
+    <main class="page">
+      <article class="post">
+  <header class="post-header">
+    <p class="eyebrow">June 26, 2026</p>
+    <h1>Fundamental Pieces for Building Any Claw or Loop</h1>
+    
+      <p class="lede">Fundamental pieces that turn one-shot coding agents into eventful systems with memory. We can call them OpenClaw, Loop Engineering, or something else, but under the hood they all look similar.</p>
+    
+  </header>
+  <div class="post-frame">
+    
+      <aside class="article-toc" aria-label="Table of contents">
+        <p class="toc-title">In this post</p>
+        <nav>
+          <ul>
+            
+              <li>
+                <a href="#limitations-of-raw-agent-cli">Limitations of Raw Agent CLI</a>
+                
+              </li>
+            
+              <li>
+                <a href="#the-four-fundamental-pieces-of-any-effective-harness">The Four Fundamental Pieces of Any Effective Harness</a>
+                
+                  <ul>
+                    
+                      <li><a href="#always-listening-socket">Always-listening socket</a></li>
+                    
+                      <li><a href="#a-good-memory-system">A Good Memory System</a></li>
+                    
+                      <li><a href="#scoped-agents-for-access-and-context">Scoped Agents, for Access and Context</a></li>
+                    
+                      <li><a href="#concurrency-and-coordination">Concurrency and Coordination</a></li>
+                    
+                  </ul>
+                
+              </li>
+            
+              <li>
+                <a href="#continuity-and-concurrency">Continuity and Concurrency</a>
+                
+              </li>
+            
+              <li>
+                <a href="#context-and-permissions-in-openclaw">Context and Permissions in OpenClaw</a>
+                
+              </li>
+            
+              <li>
+                <a href="#claws-vs-loops">Claws Vs Loops</a>
+                
+              </li>
+            
+              <li>
+                <a href="#claude-tag">Claude Tag</a>
+                
+              </li>
+            
+              <li>
+                <a href="#closing-notes">Closing Notes</a>
+                
+              </li>
+            
+          </ul>
+        </nav>
+      </aside>
+      <div class="post-content">
+        <p align="center"><em>"OpenClaw is fading. Loop engineering is the new thing!"</em><br />
+<em>"Huh?"</em></p>
+
+<p>I wanted to level up from Prompt Engineering to Loop Engineering. But I quickly realized that my prompt-engineering setup, raw Codex/Claude CLI, had two fundamental problems preventing it from becoming a true loop-engineering harness.</p>
+
+<h2 id="limitations-of-raw-agent-cli">Limitations of Raw Agent CLI</h2>
+
+<p><strong>1. Agent CLI is not effective when I am away from my computer.</strong></p>
+
+<ul>
+  <li>With Agent CLI, the agent waits for my prompt to decide what to do next. My output is capped by the hours I can sit at the keyboard.</li>
+</ul>
+
+<p><strong>2. Agents in CLI are brilliant, but they have no memory.</strong></p>
+
+<ul>
+  <li>Without memory of what happened and what agents did in the past, they are not capable of long stretches of work.</li>
+</ul>
+
+<hr />
+
+<p>Because of these fundamental problems, a raw agent CLI cannot do end-to-end work. It can only do part of the work, under our instruction and while we are watching.
+When the check-ins, context, and next actions all live in our heads, we become the bottleneck.</p>
+
+<p>To solve the above two problems, I primarily wanted two things:</p>
+
+<div class="need-grid">
+  <div class="need-card">
+
+    <p><strong>Eventful agents</strong></p>
+
+    <p>Let the world - a Slack message, a cron tick, a finished CI run - wake the agent. Work should continue whether or not I am watching.</p>
+
+  </div>
+  <div class="need-card">
+
+    <p><strong>Stateful agents</strong></p>
+
+    <p>When an agent wakes up, it needs to know why it was invoked and what it was working on. It needs the state of its past work.</p>
+
+  </div>
+</div>
+
+<p><a href="https://github.com/openclaw/openclaw">OpenClaw</a> solved this problem. I wanted to run OpenClaw for my engineering and research work, but it felt too large (18k+ files, 114 skill files) for my use.</p>
+
+<p>To be effective for my requirements, agents needed to act on my behalf while I was away. Letting a huge harness run with broad access on my machine did not feel right, especially given the sensitive nature of my work.</p>
+
+<hr />
+
+<p>I had two options:</p>
+
+<ol>
+  <li><strong>Run a heavily sandboxed OpenClaw with limited access</strong>
+    <ul>
+      <li>This significantly reduced the usefulness.</li>
+    </ul>
+  </li>
+  <li><strong>Build my own OpenClaw</strong>
+    <ul>
+      <li>A simpler system I fully understand, so I can assess the risk and give it the appropriate permissions.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>I started by using <a href="https://github.com/RalphMao/seedbot">SeedBot</a>. I loved it. SeedBot proved the harness could be tiny: a bash loop with file-based memory. Check out <a href="https://ralphmao.github.io/seed-assistant/">Huizi Mao’s SeedBot Blog</a> to learn more. SeedBot gave me trust through simplicity, but it was missing the pieces I needed to scale: scopes, permissions, and concurrency.</p>
+
+<hr />
+
+<p>So I set out to build my own harness with all these lessons in mind. I wanted the right skeleton to start with because, as I have learned, that naturally makes future build-out simpler.</p>
+
+<p>I started building <a href="https://github.com/realAsma/BeeLoop"><strong>BeeLoop</strong></a>. The interesting part was that my independent redesign and solutions kept arriving at a few fundamental design pieces of OpenClaw. They are listed below.</p>
+
+<h2 id="the-four-fundamental-pieces-of-any-effective-harness">The Four Fundamental Pieces of Any Effective Harness</h2>
+
+<table class="pieces-table">
+  <thead>
+    <tr>
+      <th>Piece</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Always-listening socket</td>
+      <td>A perpetual process listens for events and invokes the right agent.</td>
+    </tr>
+    <tr>
+      <td>A Good Memory System</td>
+      <td>Markdown state files preserve work, preferences, and context.</td>
+    </tr>
+    <tr>
+      <td>Scoped Agents, for Access and Context</td>
+      <td>Agents get only the workspace and permissions they need.</td>
+    </tr>
+    <tr>
+      <td>Concurrency and Coordination</td>
+      <td>Parallel agents coordinate work instead of conflicting or duplicating effort.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These fundamental pieces transform agent CLIs into something that feels like a living entity: one that acts in the present, grounded in the past.</p>
+
+<p>OpenClaw might fade out over time, but these four pieces are here to stay. The interfaces and implementations will change, but under the hood they all look similar to OpenClaw’s design.</p>
+
+<h3 id="always-listening-socket">Always-listening socket</h3>
+
+<p>In OpenClaw lingo, this is the gateway: the always-on central process. Its job is to listen for events and route them to the right agent.</p>
+
+<p>The events might be Slack messages, cron ticks, CI runs, Slurm run completions, and so on. This gateway is what makes the harness eventful. It monitors CI status and dispatches to the right agents as needed, without someone watching.</p>
+
+<p>OpenClaw’s gateway is written in <code class="language-plaintext highlighter-rouge">TypeScript</code> in more than 100k lines. In SeedBot, a very minimal version of this is written in 82 lines of bash script, which I found absolutely brilliant.</p>
+
+<p>To be fair, OpenClaw’s gateway does a lot more, like managing agent memory and mapping each event to its session and workspace, potentially reducing token costs. However, this felt like an unnecessary engineering burden for my personal use.</p>
+
+<h3 id="a-good-memory-system">A Good Memory System</h3>
+
+<p>This piece literally has no code. Memory is organized in plain English in Markdown files. However, the right design of memory files is crucial in making the agent feel stateful and determining whether memory retrieval is slow or fast.</p>
+
+<p>There are two kinds of memory:</p>
+
+<ol>
+  <li><strong>Long-term memory</strong>
+    <ul>
+      <li>This captures knowledge, facts, and user preferences the agent learns over time.</li>
+    </ul>
+  </li>
+  <li><strong>Working memory</strong>
+    <ul>
+      <li>Working memory, or state, is the sufficient context of what happened in the past to carry out the rest of the work. This includes the task summary, status, blockers, next steps, and so on.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>When working memory is maintained well, a fresh agent invocation feels continuous. Context bloat and the need for compaction are minimized. The agent knows what the work is, what happened, and what to do next without us telling it.</p>
+
+<h3 id="scoped-agents-for-access-and-context">Scoped Agents, for Access and Context</h3>
+
+<p>The gateway should route each event to the right agent for its trust level and context.</p>
+
+<p>My direct messages can go to a privileged agent that acts on my behalf. A team Slack message should go to a team-scoped agent with access only to shared team resources. Public channels should wake restricted agents with limited tools and sandboxed execution.</p>
+
+<p>A shared or public channel should never reach my privileged agent. That boundary has to be enforced by the harness, not by a line in <code class="language-plaintext highlighter-rouge">AGENTS.md</code> asking the agent to behave.</p>
+
+<p>Workspace- and context-scoped agents are also better for cognition. A focused worker with the right repo, state, and tools usually performs better than a generalist agent carrying unrelated context.</p>
+
+<h3 id="concurrency-and-coordination">Concurrency and Coordination</h3>
+
+<p>Once an agent can be woken by events, concurrency appears immediately.</p>
+
+<p>A cron job can fire while the previous check is still running. A Slack follow-up can arrive while a worker is implementing a fix, and so on.</p>
+
+<p>If every event related to a piece of work starts a fresh agent, agents will duplicate work, overwrite each other, or send incoherent replies.</p>
+
+<p>The harness needs a concurrency protocol. This can be as simple as instructions for detecting active work, attaching new inputs to the existing task, and using locks while editing shared files.</p>
+
+<h2 id="continuity-and-concurrency">Continuity and Concurrency</h2>
+
+<p>Working memory is how agents coordinate across time. Past agents leave behind unfinished work. Parallel agents need to know current state: who is working on what. So working memory should capture the past context for continuity and present state for handling concurrency.</p>
+
+<h2 id="context-and-permissions-in-openclaw">Context and Permissions in OpenClaw</h2>
+
+<p>OpenClaw handles memory and concurrency by mapping each conversation or event to a session lane. Only one agent runs in a lane at a time.</p>
+
+<p>The gateway does this routing job. It decides which lane an incoming message belongs to and routes it to the agent with the right memory, workspace, and permissions. A lot of OpenClaw’s complexity lives in this session resolution layer. This complexity looked unnecessary to me.</p>
+
+<p align="center"><em>With BeeLoop I attempt to simplify the gateway: it stays thin, the input source defines the permission boundary, and a broader-scope generalist agent resolves context before delegating focused work to specialized agents.</em></p>
+
+<h2 id="claws-vs-loops">Claws Vs Loops</h2>
+
+<p>Loop engineering is not new. It is just a term for how a well-engineered Claw operates.</p>
+
+<p>By Claw, I mean any agent in a harness that is stateful and eventful, with most of the pieces sketched out above. Implementations can differ.</p>
+
+<p>Here is my Slack chat transcript with BeeBot, my Claw:</p>
+
+<div class="slack-transcript">
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/asma-headshot.jpg" alt="Asma" />
+    <div>
+      <p class="slack-author">Asma</p>
+      <p class="slack-text">BeeBot, can you make KD loss the default evaluation loss in ModelOpt QAD? CE loss should be an additional metric. Please do this on a new branch rebased from latest main, create a draft PR, and notify me when it is ready for review.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/beebot-avatar.jpg" alt="BeeBot" />
+    <div>
+      <p class="slack-author">BeeBot</p>
+      <p class="slack-text">Draft <a href="https://github.com/NVIDIA/Model-Optimizer/pull/1754">PR #1754</a> is ready 🐝. KD loss is now the evaluation loss, CE is reported as the additional metric, the old KD metric key is removed, local tests passed, and CI has started.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/asma-headshot.jpg" alt="Asma" />
+    <div>
+      <p class="slack-author">Asma</p>
+      <p class="slack-text">Thanks. Added a comment on the PR. PTAL.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/beebot-avatar.jpg" alt="BeeBot" />
+    <div>
+      <p class="slack-author">BeeBot</p>
+      <p class="slack-text">Addressed and pushed. The branch is rebased on current main, the CE metric is recorded only during eval, KD loss is returned directly, and validation passed again.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/asma-headshot.jpg" alt="Asma" />
+    <div>
+      <p class="slack-author">Asma</p>
+      <p class="slack-text">Looks good. Make it a regular PR. Also ping the right xxx and xxx in the ModelOpt dev channel on Monday at 5 AM PT, from my Slack account.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/beebot-avatar.jpg" alt="BeeBot" />
+    <div>
+      <p class="slack-author">BeeBot</p>
+      <p class="slack-text">Done 🐝. <a href="https://github.com/NVIDIA/Model-Optimizer/pull/1754">PR #1754</a> is no longer a draft, and the review ping is scheduled for Monday at 5 AM PT from your account.</p>
+    </div>
+  </div>
+</div>
+
+<p>This happened while I was hiking in Alaska. When I got back to work, the PR had already merged.</p>
+
+<p align="center"><em>I just triggered. BeeBot did the work - end to end.</em></p>
+
+<p>Under the hood, this was not one long chat session staying alive for days, but:</p>
+
+<ol>
+  <li>My Slack message was routed to BeeBot, my trusted agent.</li>
+  <li>BeeBot resolved the request into a task and launched a Model Optimizer workspace-scoped agent.</li>
+  <li>Worker agent performed feature dev workflow: create the branch, loop: plan - code - test, create PR, report back.</li>
+  <li>Follow-up Slack messages invoked a new BeeBot agent, which resolved the work and past status from working memory and launched a new worker to address the comment.</li>
+  <li>Worker agent performed feature dev workflow, again.</li>
+  <li>A follow-up Slack message invoked a new BeeBot, which set up a scheduled event to wake up another BeeBot on Monday at 5 AM.</li>
+</ol>
+
+<p>It was a harness orchestrating many loops, setting monitors, scheduling events - as it was engineered to do. BeeBot was Loop Engineering, not me!</p>
+
+<p>Loop Engineering crowd is going wild, inventing ever more complex, but hard-coded loops. Do such loops generalize to all work? I do not think so.</p>
+
+<p align="center"><em>There is no universal loop that fits all work.<br />
+So lets build the Claws, who engineers the Loops!</em></p>
+
+<h2 id="claude-tag">Claude Tag</h2>
+
+<p>Once you see the pattern, <a href="https://www.anthropic.com/news/introducing-claude-tag">Claude Tag</a> looks like another harness built from the same primitives.</p>
+<ul>
+  <li>A gateway listens to Slack channel messages.</li>
+  <li>Each message can trigger a scoped agent for that channel, possibly with shared team filesystem access.</li>
+</ul>
+
+<p>There is no magic there. I can ask BeeBot to build it for me:</p>
+
+<div class="slack-transcript">
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/asma-headshot.jpg" alt="Asma" />
+    <div>
+      <p class="slack-author">Asma</p>
+      <p class="slack-text">Hey BeeBot, I want a team-shared bee for ModelOpt. It should run ModelOpt examples, have GPU access, and create PRs when team members ask. Scope it to the team filesystem only, with no access to my personal files or MCPs. Spin it up in a PyTorch container on the team workstation and ask it to say hi in the team Slack channel after setup.</p>
+    </div>
+  </div>
+  <div class="slack-message">
+    <img class="slack-avatar" src="/assets/images/beebot-avatar.jpg" alt="BeeBot" />
+    <div>
+      <p class="slack-author">BeeBot</p>
+      <p class="slack-text">I am on it 🐝.</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="closing-notes">Closing Notes</h2>
+
+<p>Once you understand the fundamental pieces of building an eventful and stateful agent harness, you can build your own — lean enough to trust, small enough to read end to end, agile enough to grow as new needs arrive, and customized so it’s actually useful to you.</p>
+
+<p>This is Part 1 of a blog series about building BeeLoop, my personal agent harness.</p>
+
+<p>Part 2: <a href="/blog/2026/06/26/beeloop-my-loop-that-engineers-my-other-loops/">BeeLoop: My Loop That Engineers My Other Loops</a>.</p>
+
+<p>Check out <a href="https://github.com/realAsma/BeeLoop">BeeLoop on GitHub</a>.</p>
+
+
+      </div>
+    
+  </div>
+</article>
+
+    </main>
+    <footer class="site-footer">
+      <span>Personal writing. Public context only.</span>
+    </footer>
+  </body>
+</html>
